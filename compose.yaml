@@ -1,15 +1,33 @@
 name: cloudlicense
 
 services:
+  postgres:
+    image: postgres:16.6-alpine
+    environment:
+      POSTGRES_DB: "${CLOUDLICENSE_DB_NAME:-cloudlicense}"
+      POSTGRES_USER: "${CLOUDLICENSE_DB_USER:-cloudlicense}"
+      POSTGRES_PASSWORD: "${CLOUDLICENSE_DB_PASSWORD:?set CLOUDLICENSE_DB_PASSWORD in .env}"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
   backend:
     build:
       context: .
       dockerfile: deploy/backend.Dockerfile
     environment:
       CLOUDLICENSE_PORT: "8080"
-      CLOUDLICENSE_DB_URL: "jdbc:h2:file:/app/data/cloudlicense;MODE=PostgreSQL"
-      CLOUDLICENSE_DB_USER: "${CLOUDLICENSE_DB_USER:-sa}"
+      CLOUDLICENSE_DB_URL: "jdbc:postgresql://postgres:5432/${CLOUDLICENSE_DB_NAME:-cloudlicense}"
+      CLOUDLICENSE_DB_USER: "${CLOUDLICENSE_DB_USER:-cloudlicense}"
       CLOUDLICENSE_DB_PASSWORD: "${CLOUDLICENSE_DB_PASSWORD:?set CLOUDLICENSE_DB_PASSWORD in .env}"
+      CLOUDLICENSE_SCHEMA: classpath:schema-postgres.sql
       CLOUDLICENSE_ADMIN_KEY: "${CLOUDLICENSE_ADMIN_KEY:?set CLOUDLICENSE_ADMIN_KEY in .env}"
       CLOUDLICENSE_LICENSE_PEPPER: "${CLOUDLICENSE_LICENSE_PEPPER:?set CLOUDLICENSE_LICENSE_PEPPER in .env}"
       CLOUDLICENSE_STORAGE_ROOT: /app/storage
@@ -56,6 +74,8 @@ services:
       - edge
       - backend
     depends_on:
+      postgres:
+        condition: service_healthy
       backend:
         condition: service_healthy
     restart: unless-stopped
@@ -68,5 +88,6 @@ networks:
     internal: true
 
 volumes:
+  postgres_data:
   caddy_data:
   caddy_config:

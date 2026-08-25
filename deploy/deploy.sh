@@ -64,7 +64,8 @@ CLOUDLICENSE_PUBLIC_ORIGIN=$PUBLIC_ORIGIN
 CLOUDLICENSE_ADMIN_KEY=$(random_hex)
 CLOUDLICENSE_LICENSE_PEPPER=$(random_hex)
 CLOUDLICENSE_DB_PASSWORD=$(random_hex)
-CLOUDLICENSE_DB_USER=sa
+CLOUDLICENSE_DB_NAME=cloudlicense
+CLOUDLICENSE_DB_USER=cloudlicense
 CLOUDLICENSE_VERIFY_RATE_LIMIT=120
 EOF
   echo "Created .env with generated secrets (values are not printed)."
@@ -72,8 +73,8 @@ else
   echo "Using existing .env; the domain argument does not overwrite existing configuration."
 fi
 
-install -d -m 0750 runtime/data runtime/storage runtime/backups
-chown -R 10001:10001 runtime/data runtime/storage
+install -d -m 0750 runtime/storage runtime/backups
+chown -R 10001:10001 runtime/storage
 
 docker compose --env-file "$ENV_FILE" config --quiet
 docker compose --env-file "$ENV_FILE" build --pull

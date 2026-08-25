@@ -1,10 +1,9 @@
 # CloudLicense Linux Docker 部署
 
-本文面向单台 Linux 服务器上的生产部署。Compose 会运行两个容器：Caddy 提供 HTTPS、Vue 静态页面和 API 反向代理，Spring Boot 容器运行授权 API 与 JNI 混淆器。H2 数据库和插件文件保存在宿主机 `runtime/` 下。
+本文面向单台 Linux 服务器上的生产部署。Compose 会运行三个容器：Caddy 提供 HTTPS、Vue 静态页面和 API 反向代理，Spring Boot 容器运行授权 API 与 JNI 混淆器，PostgreSQL 持久化授权数据。插件文件保存在宿主机 `runtime/storage/` 下。
 
 ```text
-Internet -> Caddy :80/:443 -> Spring Boot :8080 (仅 Docker 内网)
-                              |-> runtime/data
+Internet -> Caddy :80/:443 -> Spring Boot :8080 (仅 Docker 内网) -> PostgreSQL :5432
                               |-> runtime/storage
                               |-> JNI libcloudlicense_obfuscator.so
 ```
@@ -18,13 +17,29 @@ Internet -> Caddy :80/:443 -> Spring Boot :8080 (仅 Docker 内网)
 - Git、Docker Engine 和 Docker Compose v2 插件
 - 服务器上没有其他程序占用 80/443 端口
 
-可通过 Docker 官方安装脚本快速安装；安全要求较高的环境应按 Docker 官方仓库安装文档逐步安装并审查脚本内容：
+### 安装 Docker Engine 与 Compose 插件
+
+推荐使用 Docker 官方仓库安装，`docker-compose-plugin` 会提供新版 `docker compose` 子命令：
 
 ```bash
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl
 curl -fsSL https://get.docker.com -o get-docker.sh
 sudo sh get-docker.sh
+sudo apt-get install -y docker-compose-plugin
+sudo systemctl enable --now docker
 sudo docker version
 sudo docker compose version
+```
+
+安全要求较高的环境应按 Docker 官方仓库文档手动添加软件源并审查安装脚本。不要安装已经停止维护的独立 `docker-compose` v1；本项目要求 Compose v2 的 `docker compose` 命令。
+
+如果希望不使用 root 执行 Docker，可将部署用户加入 `docker` 组，然后重新登录：
+
+```bash
+sudo usermod -aG docker "$USER"
+newgrp docker
+docker compose version
 ```
 
 ## 2. 一键部署
@@ -37,10 +52,10 @@ sudo bash deploy/deploy.sh license.example.com
 
 参数是对外服务域名。首次执行时脚本会：
 
-1. 创建权限为仅管理员可读的 `.env`，并生成三个独立的 256 位随机值。
-2. 创建 `runtime/data`、`runtime/storage` 和 `runtime/backups`。
+1. 创建权限为仅管理员可读的 `.env`，并生成管理密钥、卡密 pepper 和 PostgreSQL 密码。
+2. 创建 `runtime/storage` 和 `runtime/backups`，以及 PostgreSQL 命名卷。
 3. 构建 Spring Boot、Vue、Caddy 和 Linux JNI 混淆器镜像。
-4. 启动容器并等待数据库查询健康检查通过。
+4. 启动 PostgreSQL，等待数据库健康后启动 API 和 Caddy。
 
 访问地址：
 
@@ -71,7 +86,7 @@ sudo sed -n 's/^CLOUDLICENSE_ADMIN_KEY=//p' .env
 
 - `CLOUDLICENSE_ADMIN_KEY` 泄露后应立即轮换并重启服务。
 - `CLOUDLICENSE_LICENSE_PEPPER` 必须长期保留；更换后所有既有明文卡密都无法再匹配数据库摘要。
-- `.env`、`runtime/data` 和 `runtime/storage` 不得提交到 GitHub。
+- `.env`、`runtime/storage` 和 PostgreSQL 命名卷内容不得提交到 GitHub。
 - `CLOUDLICENSE_TRUST_FORWARDED_FOR=true` 仅因为后端只连接受信任的 Caddy 内网；不要把后端 8080 端口映射到公网。
 
 修改 `.env` 后应用配置：
@@ -110,22 +125,28 @@ sudo docker compose restart
 
 ## 5. 备份与恢复
 
-H2 文件与插件仓库必须作为同一个恢复点备份。脚本会短暂停止后端，避免复制正在写入的 H2 文件：
+PostgreSQL 数据库和插件仓库必须作为同一个恢复点备份。脚本会短暂停止后端，确保 dump 与文件仓库不会同时发生业务写入：
 
 ```bash
 sudo bash deploy/backup.sh
 ls -lh runtime/backups/
+# cloudlicense-<timestamp>-db.dump
+# cloudlicense-<timestamp>-storage.tar.gz
 ```
 
-恢复前先再做一次当前状态备份。然后停止服务，将现有目录改名保留，再解压指定备份：
+恢复前先再做一次当前状态备份。然后停止 API，保留现有插件目录，再恢复 PostgreSQL dump 和插件文件：
 
 ```bash
-sudo docker compose down
+sudo docker compose stop backend web
 stamp=$(date -u +%Y%m%dT%H%M%SZ)
-sudo mv runtime/data "runtime/data.before-restore-$stamp"
 sudo mv runtime/storage "runtime/storage.before-restore-$stamp"
-sudo tar -xzf runtime/backups/cloudlicense-YYYYMMDDTHHMMSSZ.tar.gz
-sudo chown -R 10001:10001 runtime/data runtime/storage
+sudo mkdir -p runtime/storage
+sudo tar -xzf runtime/backups/cloudlicense-YYYYMMDDTHHMMSSZ-storage.tar.gz
+sudo docker compose start postgres
+cat runtime/backups/cloudlicense-YYYYMMDDTHHMMSSZ-db.dump | \
+  sudo docker compose exec -T postgres \
+  sh -c 'pg_restore --clean --if-exists --no-owner -U "$POSTGRES_USER" -d "$POSTGRES_DB"'
+sudo chown -R 10001:10001 runtime/storage
 sudo docker compose up -d
 sudo docker compose ps
 ```
@@ -156,11 +177,11 @@ sudo docker compose ps
 
 ## 7. 单节点限制
 
-当前数据库是 H2 文件数据库，只允许一个后端容器读写，不能执行 `docker compose up --scale backend=2`。需要高可用或横向扩容时，应先迁移到 PostgreSQL，并将插件文件迁移到共享对象存储；在完成迁移前，不要在多个服务器挂载同一个 H2 文件。
+当前 Compose 已使用 PostgreSQL，但插件文件仍位于单机 `runtime/storage/`，因此不能直接执行 `docker compose up --scale backend=2`。需要横向扩容时，应先迁移到共享对象存储，并为多个 API 实例配置同一 PostgreSQL。旧版本 H2 数据不会自动导入 PostgreSQL；已有生产数据需要单独执行一次数据迁移和校验。
 
 ## 资料来源
 
 - `compose.yaml`：容器网络、持久化、健康检查和运行时安全配置
 - `deploy/deploy.sh`：首次配置生成与部署流程
-- `deploy/backup.sh`：H2 和插件仓库一致性备份流程
+- `deploy/backup.sh`：PostgreSQL dump 和插件仓库一致性备份流程
 - `backend/src/main/resources/application.yml`：后端环境变量与代理信任设置

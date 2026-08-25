@@ -47,6 +47,18 @@ jobs:
         run: docker compose --env-file .env.example config --quiet
       - name: Build backend image (Spring Boot + JNI)
         run: docker build --pull -f deploy/backend.Dockerfile -t cloudlicense-backend:ci .
+      - name: Smoke-test PostgreSQL-backed API
+        run: |
+          trap 'docker compose --env-file .env.example logs --tail=200 postgres backend || true; docker compose --env-file .env.example down -v --remove-orphans' EXIT
+          docker compose --env-file .env.example up -d postgres backend
+          for attempt in $(seq 1 60); do
+            if docker compose --env-file .env.example exec -T backend \
+                curl --fail --silent http://127.0.0.1:8080/api/v1/public/plugins >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
       - name: Build frontend image (Vue + Caddy)
         run: docker build --pull -f deploy/frontend.Dockerfile -t cloudlicense-web:ci .
       - name: Validate Caddy configuration

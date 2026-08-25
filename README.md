@@ -1,6 +1,6 @@
 # CloudLicense
 
-CloudLicense 是面向 Minecraft Bukkit/Paper 插件的授权、版本发布和下载系统。仓库包含 Spring Boot API、Vue 3 管理端、用户插件中心、JNI ClassFile 变换器和 Java 插件 SDK。
+CloudLicense 是面向 Minecraft Bukkit/Paper 插件的授权、版本发布和下载系统。仓库包含 Spring Boot API、PostgreSQL 数据库、Vue 3 管理端、用户插件中心、JNI ClassFile 变换器和 Java 插件 SDK。
 
 ## 功能
 
@@ -36,7 +36,7 @@ cd CloudLicense
 sudo bash deploy/deploy.sh license.example.com
 ```
 
-部署脚本会自动生成 `.env` 中的管理密钥、卡密 pepper 和数据库密码，构建 Java、Vue 与 JNI 镜像，启动服务并等待健康检查。部署完成后访问：
+部署脚本会自动生成 `.env` 中的管理密钥、卡密 pepper 和 PostgreSQL 密码，构建 Java、Vue 与 JNI 镜像，启动 PostgreSQL、API 和 Caddy，并等待数据库健康检查。部署完成后访问：
 
 - 管理端：`https://license.example.com/`
 - 用户插件中心：`https://license.example.com/download.html`
@@ -98,16 +98,18 @@ $env:CLOUDLICENSE_NATIVE_LIBRARY = (Resolve-Path 'native-obfuscator/build/Releas
 | `CLOUDLICENSE_PORT` | `8080` | API 端口 |
 | `CLOUDLICENSE_ADMIN_KEY` | 仅开发默认值 | 管理 API Bearer 密钥 |
 | `CLOUDLICENSE_LICENSE_PEPPER` | 仅开发默认值 | 卡密 HMAC-SHA256 服务端 pepper |
-| `CLOUDLICENSE_DB_URL` | `jdbc:h2:file:./data/cloudlicense...` | JDBC 地址 |
-| `CLOUDLICENSE_DB_USER` | `sa` | 数据库用户 |
+| `CLOUDLICENSE_DB_URL` | 本地默认 H2；Docker 使用 PostgreSQL | JDBC 地址 |
+| `CLOUDLICENSE_DB_NAME` | `cloudlicense` | PostgreSQL 数据库名（Docker） |
+| `CLOUDLICENSE_DB_USER` | 本地 `sa`；Docker `cloudlicense` | 数据库用户 |
 | `CLOUDLICENSE_DB_PASSWORD` | 空 | 数据库密码 |
+| `CLOUDLICENSE_SCHEMA` | `classpath:schema.sql` | 初始化脚本；Docker 使用 `schema-postgres.sql` |
 | `CLOUDLICENSE_STORAGE_ROOT` | `./storage` | 混淆后 JAR 仓库 |
 | `CLOUDLICENSE_NATIVE_LIBRARY` | 空 | JNI 动态库绝对路径 |
 | `CLOUDLICENSE_TRUST_FORWARDED_FOR` | `false` | 是否信任首个 `X-Forwarded-For` |
 | `CLOUDLICENSE_VERIFY_RATE_LIMIT` | `120` | 单 IP 每分钟验证上限 |
 | `CLOUDLICENSE_ALLOWED_ORIGINS` | 本机 Vite 地址 | 逗号分隔的前端来源 |
 
-只有在 API 仅能由受信任反向代理访问时才能开启 `CLOUDLICENSE_TRUST_FORWARDED_FOR`，否则客户端可以伪造绑定 IP。H2 文件数据库适合单节点部署；横向扩容前应迁移到 PostgreSQL 并使用共享对象存储。
+只有在 API 仅能由受信任反向代理访问时才能开启 `CLOUDLICENSE_TRUST_FORWARDED_FOR`，否则客户端可以伪造绑定 IP。Docker 部署默认使用 PostgreSQL；插件文件仍保存在单机目录，横向扩容前需迁移到共享对象存储。
 
 ## 插件 SDK
 
@@ -153,6 +155,6 @@ npm run build
 npm audit --audit-level=high
 ```
 
-生产发布前先备份 `data/` 与 `storage/`。回滚应用代码时必须同时保留这两个目录；不要回滚卡密数据或覆盖已发布 JAR。
+生产发布前先执行 `deploy/backup.sh`，同时备份 PostgreSQL 自定义 dump 和 `runtime/storage/`。回滚应用代码时不要覆盖数据库或已发布 JAR。
 
-Docker 部署的数据位于 `runtime/data/` 和 `runtime/storage/`；应使用 `sudo bash deploy/backup.sh` 一致性备份这两个目录。
+Docker 部署的 PostgreSQL 数据位于命名卷 `postgres_data`，插件文件位于 `runtime/storage/`；应使用 `sudo bash deploy/backup.sh` 创建一致性备份。

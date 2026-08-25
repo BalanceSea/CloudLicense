@@ -6,7 +6,8 @@ PROJECT_DIR=$(cd -- "$SCRIPT_DIR/.." && pwd)
 ENV_FILE="$PROJECT_DIR/.env"
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 BACKUP_DIR="$PROJECT_DIR/runtime/backups"
-BACKUP_FILE="$BACKUP_DIR/cloudlicense-$STAMP.tar.gz"
+DB_BACKUP_FILE="$BACKUP_DIR/cloudlicense-$STAMP-db.dump"
+STORAGE_BACKUP_FILE="$BACKUP_DIR/cloudlicense-$STAMP-storage.tar.gz"
 BACKEND_STOPPED=false
 
 if [[ ! -f "$ENV_FILE" ]]; then
@@ -25,8 +26,11 @@ cd "$PROJECT_DIR"
 mkdir -p "$BACKUP_DIR"
 docker compose --env-file "$ENV_FILE" stop backend
 BACKEND_STOPPED=true
-tar -czf "$BACKUP_FILE" runtime/data runtime/storage
+docker compose --env-file "$ENV_FILE" exec -T postgres \
+  sh -c 'pg_dump --format=custom --no-owner -U "$POSTGRES_USER" "$POSTGRES_DB"' > "$DB_BACKUP_FILE"
+tar -czf "$STORAGE_BACKUP_FILE" runtime/storage
 docker compose --env-file "$ENV_FILE" start backend >/dev/null
 BACKEND_STOPPED=false
 
-echo "Backup created: $BACKUP_FILE"
+echo "Database backup created: $DB_BACKUP_FILE"
+echo "Storage backup created: $STORAGE_BACKUP_FILE"
