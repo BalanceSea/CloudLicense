@@ -1,0 +1,35 @@
+server:
+  port: ${CLOUDLICENSE_PORT:8080}
+  forward-headers-strategy: none
+  error:
+    include-message: never
+
+spring:
+  application:
+    name: CloudLicense
+  datasource:
+    url: ${CLOUDLICENSE_DB_URL:jdbc:h2:file:./data/cloudlicense;MODE=PostgreSQL;AUTO_SERVER=TRUE}
+    username: ${CLOUDLICENSE_DB_USER:sa}
+    password: ${CLOUDLICENSE_DB_PASSWORD:}
+  sql:
+    init:
+      mode: always
+  servlet:
+    multipart:
+      max-file-size: 100MB
+      max-request-size: 105MB
+
+cloudlicense:
+  admin-key: ${CLOUDLICENSE_ADMIN_KEY:dev-cloudlicense-change-me}
+  license-pepper: ${CLOUDLICENSE_LICENSE_PEPPER:dev-pepper-change-me}
+  storage-root: ${CLOUDLICENSE_STORAGE_ROOT:./storage}
+  native-library: ${CLOUDLICENSE_NATIVE_LIBRARY:}
+  trust-forwarded-for: ${CLOUDLICENSE_TRUST_FORWARDED_FOR:false}
+  verify-rate-limit-per-minute: ${CLOUDLICENSE_VERIFY_RATE_LIMIT:120}
+  allowed-origins: ${CLOUDLICENSE_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+
+springdoc:
+  swagger-ui:
+    path: /api-docs
+  api-docs:
+    path: /api/v1/openapi

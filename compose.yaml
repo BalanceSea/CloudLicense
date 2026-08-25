@@ -1,0 +1,72 @@
+name: cloudlicense
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: deploy/backend.Dockerfile
+    environment:
+      CLOUDLICENSE_PORT: "8080"
+      CLOUDLICENSE_DB_URL: "jdbc:h2:file:/app/data/cloudlicense;MODE=PostgreSQL"
+      CLOUDLICENSE_DB_USER: "${CLOUDLICENSE_DB_USER:-sa}"
+      CLOUDLICENSE_DB_PASSWORD: "${CLOUDLICENSE_DB_PASSWORD:?set CLOUDLICENSE_DB_PASSWORD in .env}"
+      CLOUDLICENSE_ADMIN_KEY: "${CLOUDLICENSE_ADMIN_KEY:?set CLOUDLICENSE_ADMIN_KEY in .env}"
+      CLOUDLICENSE_LICENSE_PEPPER: "${CLOUDLICENSE_LICENSE_PEPPER:?set CLOUDLICENSE_LICENSE_PEPPER in .env}"
+      CLOUDLICENSE_STORAGE_ROOT: /app/storage
+      CLOUDLICENSE_NATIVE_LIBRARY: /app/native/libcloudlicense_obfuscator.so
+      CLOUDLICENSE_TRUST_FORWARDED_FOR: "true"
+      CLOUDLICENSE_VERIFY_RATE_LIMIT: "${CLOUDLICENSE_VERIFY_RATE_LIMIT:-120}"
+      CLOUDLICENSE_ALLOWED_ORIGINS: "${CLOUDLICENSE_PUBLIC_ORIGIN:?set CLOUDLICENSE_PUBLIC_ORIGIN in .env}"
+    volumes:
+      - ./runtime/data:/app/data
+      - ./runtime/storage:/app/storage
+    expose:
+      - "8080"
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "--show-error", "http://127.0.0.1:8080/api/v1/public/plugins"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=128m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/frontend.Dockerfile
+    environment:
+      CLOUDLICENSE_SITE_ADDRESS: "${CLOUDLICENSE_SITE_ADDRESS:?set CLOUDLICENSE_SITE_ADDRESS in .env}"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+      - backend
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+networks:
+  edge:
+  backend:
+    internal: true
+
+volumes:
+  caddy_data:
+  caddy_config:

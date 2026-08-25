@@ -1,0 +1,17 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:cloudlicense-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  sql:
+    init:
+      mode: always
+
+cloudlicense:
+  admin-key: integration-admin-key
+  license-pepper: integration-test-pepper
+  storage-root: ./target/test-storage
+  native-library: ""
+  trust-forwarded-for: false
+  verify-rate-limit-per-minute: 120
+  allowed-origins: http://localhost:5173

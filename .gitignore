@@ -1,0 +1,17 @@
+.idea/
+.vscode/
+*.iml
+target/
+node_modules/
+dist/
+.DS_Store
+data/
+storage/
+runtime/
+.env
+.tools/
+.ai-memory/
+native-obfuscator/build/
+*.mv.db
+*.trace.db
+*.log
