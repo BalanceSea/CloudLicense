@@ -67,6 +67,8 @@ CLOUDLICENSE_DB_PASSWORD=$(random_hex)
 CLOUDLICENSE_DB_NAME=cloudlicense
 CLOUDLICENSE_DB_USER=cloudlicense
 CLOUDLICENSE_VERIFY_RATE_LIMIT=120
+CLOUDLICENSE_WEB_HTTP_PORT=80
+CLOUDLICENSE_WEB_HTTPS_PORT=443
 EOF
   echo "Created .env with generated secrets (values are not printed)."
 else

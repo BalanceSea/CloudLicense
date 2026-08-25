@@ -44,6 +44,8 @@ sudo bash deploy/deploy.sh license.example.com
 
 无域名测试可传入 `http://服务器IP`，但生产环境必须使用 HTTPS。完整的安装、升级、备份、恢复、回滚和监控说明见 [Linux Docker 部署](docs/deployment-linux.md)。
 
+Docker 部署默认访问端口是 `80`，不是 Vite 开发端口 `5173`。局域网需要使用 `5173` 时，在 `.env` 设置 `CLOUDLICENSE_WEB_HTTP_PORT=5173` 后执行 `sudo docker compose up -d --force-recreate web backend`。
+
 ## 本地运行
 
 要求：JDK 21+、Node.js 20+。只有上传混淆功能额外需要 CMake 3.20+ 和 C++17 编译器。

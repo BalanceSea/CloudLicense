@@ -66,6 +66,24 @@ Swagger UI    https://license.example.com/api-docs
 OpenAPI       https://license.example.com/api/v1/openapi
 ```
 
+Docker 部署默认使用宿主机 `80/443`，不是 Vite 开发端口 `5173`。局域网 HTTP 部署如果希望通过 `5173` 访问，编辑 `.env`：
+
+```dotenv
+CLOUDLICENSE_SITE_ADDRESS=http://192.168.5.88
+CLOUDLICENSE_PUBLIC_ORIGIN=http://192.168.5.88:5173
+CLOUDLICENSE_WEB_HTTP_PORT=5173
+CLOUDLICENSE_WEB_HTTPS_PORT=5443
+```
+
+然后重建 Web 和后端容器：
+
+```bash
+sudo docker compose up -d --force-recreate web backend
+curl -fsS http://192.168.5.88:5173/api/v1/public/plugins
+```
+
+浏览器地址为 `http://192.168.5.88:5173/`。如果没有端口冲突，直接访问 `http://192.168.5.88/` 即可。
+
 仅用于内网测试或尚无域名时，可以执行：
 
 ```bash
