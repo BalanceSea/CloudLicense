@@ -1,21 +1,21 @@
 # CloudLicense Linux Docker 部署
 
-本文面向单台 Linux 服务器上的生产部署。Compose 会运行三个容器：Caddy 提供 HTTPS、Vue 静态页面和 API 反向代理，Spring Boot 容器运行授权 API 与 JNI 混淆器，PostgreSQL 持久化授权数据。插件文件保存在宿主机 `runtime/storage/` 下。
+本文面向单台 Linux 服务器或局域网主机的无域名部署。Compose 会运行三个容器：Caddy 提供 Vue 静态页面和 API 反向代理，Spring Boot 容器运行授权 API 与 JNI 混淆器，PostgreSQL 持久化授权数据。插件文件保存在宿主机 `runtime/storage/` 下。
 
 ```text
-Internet -> Caddy :80/:443 -> Spring Boot :8080 (仅 Docker 内网) -> PostgreSQL :5432
-                              |-> runtime/storage
-                              |-> JNI libcloudlicense_obfuscator.so
+LAN -> Caddy :5173/:5443 -> Spring Boot :8080 -> PostgreSQL :5432
+      API :2345 -----------^
+      |-> runtime/storage
+      |-> JNI libcloudlicense_obfuscator.so
 ```
 
 ## 1. 服务器准备
 
 建议使用 Ubuntu 22.04/24.04 或 Debian 12，至少 2 核 CPU、2 GB 内存和 10 GB 可用磁盘。生产环境需要：
 
-- 域名 A/AAAA 记录指向服务器公网 IP
-- 云安全组和主机防火墙开放 TCP 80、TCP 443、UDP 443
+- 防火墙开放 TCP 2345、TCP 5173；如启用 HTTPS，再开放 TCP/UDP 5443
 - Git、Docker Engine 和 Docker Compose v2 插件
-- 服务器上没有其他程序占用 80/443 端口
+- 主机没有其他程序占用 2345、5173、5443 端口
 
 ### 安装 Docker Engine 与 Compose 插件
 
@@ -47,50 +47,38 @@ docker compose version
 ```bash
 git clone https://github.com/BalanceSea/CloudLicense.git CloudLicense
 cd CloudLicense
-sudo bash deploy/deploy.sh license.example.com
+sudo bash deploy/deploy.sh
 ```
 
-参数是对外服务域名。首次执行时脚本会：
+脚本不需要参数。首次执行时脚本会：
 
 1. 创建权限为仅管理员可读的 `.env`，并生成管理密钥、卡密 pepper 和 PostgreSQL 密码。
 2. 创建 `runtime/storage` 和 `runtime/backups`，以及 PostgreSQL 命名卷。
 3. 构建 Spring Boot、Vue、Caddy 和 Linux JNI 混淆器镜像。
 4. 启动 PostgreSQL，等待数据库健康后启动 API 和 Caddy。
 
-访问地址：
+默认端口映射：
 
 ```text
-管理端        https://license.example.com/
-用户中心      https://license.example.com/download.html
-Swagger UI    https://license.example.com/api-docs
-OpenAPI       https://license.example.com/api/v1/openapi
+0.0.0.0:2345 -> backend:8080/tcp
+0.0.0.0:5173 -> web:80/tcp
+0.0.0.0:5443 -> web:443/tcp
 ```
 
-Docker 部署默认使用宿主机 `80/443`，不是 Vite 开发端口 `5173`。局域网 HTTP 部署如果希望通过 `5173` 访问，编辑 `.env`：
+将 `192.168.5.88` 替换为部署主机的局域网 IP：
 
-```dotenv
-CLOUDLICENSE_SITE_ADDRESS=http://192.168.5.88
-CLOUDLICENSE_PUBLIC_ORIGIN=http://192.168.5.88:5173
-CLOUDLICENSE_WEB_HTTP_PORT=5173
-CLOUDLICENSE_WEB_HTTPS_PORT=5443
-```
+- 管理端：`http://192.168.5.88:5173/`
+- 用户插件中心：`http://192.168.5.88:5173/download.html`
+- API 健康检查：`http://192.168.5.88:2345/api/v1/public/plugins`
+- Swagger UI：`http://192.168.5.88:2345/api-docs`
 
-然后重建 Web 和后端容器：
+确认端口映射：
 
 ```bash
-sudo docker compose up -d --force-recreate web backend
-curl -fsS http://192.168.5.88:5173/api/v1/public/plugins
+sudo docker compose ps
+curl -fsS http://127.0.0.1:2345/api/v1/public/plugins
+curl -fsS http://127.0.0.1:5173/
 ```
-
-浏览器地址为 `http://192.168.5.88:5173/`。如果没有端口冲突，直接访问 `http://192.168.5.88/` 即可。
-
-仅用于内网测试或尚无域名时，可以执行：
-
-```bash
-sudo bash deploy/deploy.sh http://203.0.113.10
-```
-
-HTTP 会暴露 Bearer Token，不得用于互联网生产环境。域名模式下，如果证书申请失败，先检查 DNS 是否已生效以及 80/443 端口是否可从公网访问。
 
 ## 3. 配置与密钥
 
@@ -105,7 +93,7 @@ sudo sed -n 's/^CLOUDLICENSE_ADMIN_KEY=//p' .env
 - `CLOUDLICENSE_ADMIN_KEY` 泄露后应立即轮换并重启服务。
 - `CLOUDLICENSE_LICENSE_PEPPER` 必须长期保留；更换后所有既有明文卡密都无法再匹配数据库摘要。
 - `.env`、`runtime/storage` 和 PostgreSQL 命名卷内容不得提交到 GitHub。
-- `CLOUDLICENSE_TRUST_FORWARDED_FOR=true` 仅因为后端只连接受信任的 Caddy 内网；不要把后端 8080 端口映射到公网。
+- 局域网默认 `CLOUDLICENSE_TRUST_FORWARDED_FOR=false`，因为 API 端口 2345 直接暴露给客户端，不能信任客户端自行提交的 `X-Forwarded-For`。只有关闭 API 端口公网映射、只允许受信任 Caddy 访问时，才可以改为 `true`。
 
 修改 `.env` 后应用配置：
 
@@ -123,7 +111,7 @@ sudo docker compose ps
 sudo docker compose logs -f --tail=200
 
 # 后端健康检查
-curl -fsS https://license.example.com/api/v1/public/plugins
+curl -fsS http://127.0.0.1:2345/api/v1/public/plugins
 
 # 重启
 sudo docker compose restart
@@ -178,7 +166,7 @@ sudo docker compose ps
 ```bash
 sudo bash deploy/backup.sh
 git pull --ff-only
-sudo bash deploy/deploy.sh license.example.com
+sudo bash deploy/deploy.sh
 ```
 
 部署脚本发现 `.env` 已存在时不会覆盖任何密钥。若新版本健康检查失败，在无本地改动的部署目录中切回上一个已知正常提交并重建；不要替换或回滚 `runtime/`：

@@ -32,13 +32,15 @@ services:
       CLOUDLICENSE_LICENSE_PEPPER: "${CLOUDLICENSE_LICENSE_PEPPER:?set CLOUDLICENSE_LICENSE_PEPPER in .env}"
       CLOUDLICENSE_STORAGE_ROOT: /app/storage
       CLOUDLICENSE_NATIVE_LIBRARY: /app/native/libcloudlicense_obfuscator.so
-      CLOUDLICENSE_TRUST_FORWARDED_FOR: "true"
+      CLOUDLICENSE_TRUST_FORWARDED_FOR: "${CLOUDLICENSE_TRUST_FORWARDED_FOR:-false}"
       CLOUDLICENSE_VERIFY_RATE_LIMIT: "${CLOUDLICENSE_VERIFY_RATE_LIMIT:-120}"
-      CLOUDLICENSE_ALLOWED_ORIGINS: "${CLOUDLICENSE_PUBLIC_ORIGIN:?set CLOUDLICENSE_PUBLIC_ORIGIN in .env}"
+      CLOUDLICENSE_ALLOWED_ORIGINS: "${CLOUDLICENSE_PUBLIC_ORIGIN:-http://localhost:5173}"
     volumes:
       - ./runtime/storage:/app/storage
     expose:
       - "8080"
+    ports:
+      - "${CLOUDLICENSE_API_PORT:-2345}:8080"
     networks:
       - backend
     healthcheck:
@@ -61,11 +63,11 @@ services:
       context: .
       dockerfile: deploy/frontend.Dockerfile
     environment:
-      CLOUDLICENSE_SITE_ADDRESS: "${CLOUDLICENSE_SITE_ADDRESS:?set CLOUDLICENSE_SITE_ADDRESS in .env}"
+      CLOUDLICENSE_SITE_ADDRESS: "${CLOUDLICENSE_SITE_ADDRESS:-:80}"
     ports:
-      - "${CLOUDLICENSE_WEB_HTTP_PORT:-80}:80"
-      - "${CLOUDLICENSE_WEB_HTTPS_PORT:-443}:443"
-      - "${CLOUDLICENSE_WEB_HTTPS_PORT:-443}:443/udp"
+      - "${CLOUDLICENSE_WEB_HTTP_PORT:-5173}:80"
+      - "${CLOUDLICENSE_WEB_HTTPS_PORT:-5443}:443"
+      - "${CLOUDLICENSE_WEB_HTTPS_PORT:-5443}:443/udp"
     volumes:
       - caddy_data:/data
       - caddy_config:/config

@@ -28,23 +28,30 @@ docs/deployment-linux.md  Linux Docker 部署与运维
 
 ## Linux 一键部署
 
-要求一台安装了 Docker Engine 与 Docker Compose 插件的 Linux 服务器。域名部署会由 Caddy 自动申请和续期 HTTPS 证书：
+默认是无域名局域网模式，不需要传入任何参数：
 
 ```bash
 git clone https://github.com/BalanceSea/CloudLicense.git CloudLicense
 cd CloudLicense
-sudo bash deploy/deploy.sh license.example.com
+sudo bash deploy/deploy.sh
 ```
 
-部署脚本会自动生成 `.env` 中的管理密钥、卡密 pepper 和 PostgreSQL 密码，构建 Java、Vue 与 JNI 镜像，启动 PostgreSQL、API 和 Caddy，并等待数据库健康检查。部署完成后访问：
+默认端口映射：
 
-- 管理端：`https://license.example.com/`
-- 用户插件中心：`https://license.example.com/download.html`
-- Swagger UI：`https://license.example.com/api-docs`
+```text
+0.0.0.0:2345 -> backend:8080/tcp
+0.0.0.0:5173 -> web:80/tcp
+0.0.0.0:5443 -> web:443/tcp
+```
 
-无域名测试可传入 `http://服务器IP`，但生产环境必须使用 HTTPS。完整的安装、升级、备份、恢复、回滚和监控说明见 [Linux Docker 部署](docs/deployment-linux.md)。
+访问地址：
 
-Docker 部署默认访问端口是 `80`，不是 Vite 开发端口 `5173`。局域网需要使用 `5173` 时，在 `.env` 设置 `CLOUDLICENSE_WEB_HTTP_PORT=5173` 后执行 `sudo docker compose up -d --force-recreate web backend`。
+- 管理端：`http://服务器IP:5173/`
+- 用户插件中心：`http://服务器IP:5173/download.html`
+- API 健康检查：`http://服务器IP:2345/api/v1/public/plugins`
+- Swagger UI：`http://服务器IP:2345/api-docs`
+
+完整的 Docker Compose 安装、端口、防火墙、备份和恢复说明见 [Linux Docker 部署](docs/deployment-linux.md)。
 
 ## 本地运行
 
@@ -109,7 +116,10 @@ $env:CLOUDLICENSE_NATIVE_LIBRARY = (Resolve-Path 'native-obfuscator/build/Releas
 | `CLOUDLICENSE_NATIVE_LIBRARY` | 空 | JNI 动态库绝对路径 |
 | `CLOUDLICENSE_TRUST_FORWARDED_FOR` | `false` | 是否信任首个 `X-Forwarded-For` |
 | `CLOUDLICENSE_VERIFY_RATE_LIMIT` | `120` | 单 IP 每分钟验证上限 |
-| `CLOUDLICENSE_ALLOWED_ORIGINS` | 本机 Vite 地址 | 逗号分隔的前端来源 |
+| `CLOUDLICENSE_ALLOWED_ORIGINS` | `http://localhost:5173` | 逗号分隔的前端来源 |
+| `CLOUDLICENSE_API_PORT` | `2345` | Docker 宿主机 API 端口，映射到容器 8080 |
+| `CLOUDLICENSE_WEB_HTTP_PORT` | `5173` | Docker 宿主机 HTTP 端口，映射到容器 80 |
+| `CLOUDLICENSE_WEB_HTTPS_PORT` | `5443` | Docker 宿主机 HTTPS 端口，映射到容器 443 |
 
 只有在 API 仅能由受信任反向代理访问时才能开启 `CLOUDLICENSE_TRUST_FORWARDED_FOR`，否则客户端可以伪造绑定 IP。Docker 部署默认使用 PostgreSQL；插件文件仍保存在单机目录，横向扩容前需迁移到共享对象存储。
 
