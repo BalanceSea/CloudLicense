@@ -31,7 +31,7 @@ docs/deployment-linux.md  Linux Docker 部署与运维
 要求一台安装了 Docker Engine 与 Docker Compose 插件的 Linux 服务器。域名部署会由 Caddy 自动申请和续期 HTTPS 证书：
 
 ```bash
-git clone <github-repository-url> CloudLicense
+git clone https://github.com/BalanceSea/CloudLicense.git CloudLicense
 cd CloudLicense
 sudo bash deploy/deploy.sh license.example.com
 ```

@@ -30,7 +30,7 @@ sudo docker compose version
 ## 2. 一键部署
 
 ```bash
-git clone <github-repository-url> CloudLicense
+git clone https://github.com/BalanceSea/CloudLicense.git CloudLicense
 cd CloudLicense
 sudo bash deploy/deploy.sh license.example.com
 ```
