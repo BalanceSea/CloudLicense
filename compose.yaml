@@ -36,7 +36,6 @@ services:
       CLOUDLICENSE_VERIFY_RATE_LIMIT: "${CLOUDLICENSE_VERIFY_RATE_LIMIT:-120}"
       CLOUDLICENSE_ALLOWED_ORIGINS: "${CLOUDLICENSE_PUBLIC_ORIGIN:?set CLOUDLICENSE_PUBLIC_ORIGIN in .env}"
     volumes:
-      - ./runtime/data:/app/data
       - ./runtime/storage:/app/storage
     expose:
       - "8080"

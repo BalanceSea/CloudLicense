@@ -18,7 +18,7 @@ CloudLicense 是面向 Minecraft Bukkit/Paper 插件的授权、版本发布和�
 ## 目录
 
 ```text
-backend/             Spring Boot API、H2 数据库、文件仓库
+backend/             Spring Boot API、PostgreSQL/H2 测试数据库、文件仓库
 frontend/            Vue 管理端与用户插件中心
 sdk/                 插件侧 Java SDK
 native-obfuscator/   JNI C++ ClassFile 变换器

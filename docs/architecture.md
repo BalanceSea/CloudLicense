@@ -19,7 +19,7 @@ Minecraft 插件 SDK ───────> 验证/版本 API                └
 
 | 决策 | 选择 | 代价与撤销条件 |
 | --- | --- | --- |
-| 数据库 | H2 文件模式 | 零外部依赖、适合单节点；需要多实例时迁移 PostgreSQL |
+| 数据库 | PostgreSQL（Docker）/H2（测试） | PostgreSQL 提供事务和并发能力；本地测试使用内存 H2，生产不使用 H2 文件模式 |
 | 管理鉴权 | Bearer 管理密钥 | 部署简单；需要多管理员/审计时替换为 OIDC + RBAC |
 | 用户鉴权 | BCrypt + 7 天随机 Bearer 会话 | 无 Cookie CSRF 面；刷新页面需重新登录，未来可替换短期 Access Token + HttpOnly Refresh Token |
 | 卡密存储 | HMAC-SHA256 + pepper | 无法找回明文；重置 pepper 会使既有卡密失效 |
