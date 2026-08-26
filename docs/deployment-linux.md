@@ -103,6 +103,17 @@ sudo docker compose up -d --force-recreate
 
 ## 4. 日常操作
 
+升级包含 JNI 混淆器变更时，必须重新构建后端镜像；仅执行 `docker compose restart` 不会替换已经运行的原生库：
+
+```bash
+git pull --ff-only
+sudo docker compose build --no-cache backend
+sudo docker compose up -d --force-recreate backend
+sudo docker compose ps
+```
+
+上传后可在管理端版本列表复制返回的 SHA-256，并在下载的 JAR 上运行 `sha256sum` 做完整性核对。当前 JNI 策略会重命名私有字段/方法；公共 Bukkit/Paper 入口类保持原名。
+
 ```bash
 # 服务状态
 sudo docker compose ps
