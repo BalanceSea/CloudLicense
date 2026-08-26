@@ -28,6 +28,7 @@ public class NativeClassTransformer {
         }
         System.load(library.toString());
         available = true;
+        log.info("JNI obfuscator loaded: private member renaming and debug metadata stripping enabled");
     }
 
     public boolean isAvailable() {
@@ -43,4 +44,3 @@ public class NativeClassTransformer {
 
     private native byte[] transformClass(byte[] classBytes);
 }
-
