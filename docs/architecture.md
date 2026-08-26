@@ -24,4 +24,4 @@ Minecraft 插件 SDK ───────> 验证/版本 API                └
 | 用户鉴权 | BCrypt + 7 天随机 Bearer 会话 | 无 Cookie CSRF 面；刷新页面需重新登录，未来可替换短期 Access Token + HttpOnly Refresh Token |
 | 卡密存储 | HMAC-SHA256 + pepper | 无法找回明文；重置 pepper 会使既有卡密失效 |
 | IP 来源 | 默认 socket remote address | 防伪造；代理部署时需显式信任 XFF 并限制直连 |
-| 混淆策略 | JNI 删除调试元数据 | 兼容性高但强度有限；需要重命名/控制流混淆时替换 `JarObfuscator` 实现 |
+| 混淆策略 | JNI 私有成员重命名 + 调试元数据剥离 | 公共 Bukkit/Paper API 保持不变；依赖私有成员原名反射的插件需要调整或关闭混淆 |

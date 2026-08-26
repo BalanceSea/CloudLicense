@@ -4,7 +4,7 @@ CloudLicense 是面向 Minecraft Bukkit/Paper 插件的授权、版本发布和�
 
 ## 功能
 
-- 上传插件 JAR，经 JNI 移除 ClassFile 调试元数据后写入版本仓库
+- 上传插件 JAR，经 JNI 重命名私有字段/方法并移除 ClassFile 调试元数据后写入版本仓库
 - 自定义插件授权列表，内置 CloudFashion 与 CloudChest
 - 批量生成 7 天、30 天、自定义天数或永久卡密
 - 首次验证原子绑定来源 IP，后续仅允许相同 IP
@@ -80,7 +80,7 @@ npm run dev
 
 ## JNI 混淆器
 
-当前原生变换器执行兼容优先的 ClassFile 硬化：删除 `SourceFile`、`SourceDebugExtension`、`LineNumberTable`、`LocalVariableTable` 和 `LocalVariableTypeTable`，同时移除已失效的 JAR 签名文件并保留 Manifest。它不会重命名 Bukkit/Paper 入口类，也不会修改业务字节码。
+当前原生变换器执行兼容优先的 ClassFile 混淆：对每个 class 的私有字段和私有方法生成稳定的 `cl$...` 名称，并同步改写当前 class 内的 `Fieldref/Methodref` 引用；同时删除 `SourceFile`、`SourceDebugExtension`、`LineNumberTable`、`LocalVariableTable` 和 `LocalVariableTypeTable`，移除已失效的 JAR 签名文件并保留 Manifest。公共 Bukkit/Paper 入口类、公共方法和资源文件不会被重命名。使用反射按私有成员原名访问的插件需要关闭这类处理或调整代码。
 
 Linux/macOS：
 

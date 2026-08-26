@@ -21,7 +21,13 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
+      - name: Build JNI transformer for integration tests
+        run: |
+          cmake -S native-obfuscator -B native-obfuscator/build -DCMAKE_BUILD_TYPE=Release
+          cmake --build native-obfuscator/build --config Release --parallel
       - name: Run Maven tests
+        env:
+          CLOUDLICENSE_NATIVE_LIBRARY: ${{ github.workspace }}/native-obfuscator/build/libcloudlicense_obfuscator.so
         run: |
           chmod +x mvnw
           ./mvnw -B clean test
